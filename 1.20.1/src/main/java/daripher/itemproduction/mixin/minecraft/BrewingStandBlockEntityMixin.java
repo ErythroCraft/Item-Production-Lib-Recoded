@@ -14,17 +14,40 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(BrewingStandBlockEntity.class)
 public abstract class BrewingStandBlockEntityMixin {
+
+  private BrewingStandBlockEntityMixin() {
+    throw new IllegalStateException("Mixin class cannot be instantiated");
+  }
+
+  /**
+   * Injiziert sich ans Ende des Brauvorgangs (TAIL) im Vanilla-Braustand.
+   */
   @Inject(method = "doBrew", at = @At("TAIL"))
   private static void enhanceBrewedPotions(
       Level level,
       BlockPos blockPos,
       NonNullList<ItemStack> itemStacks,
       CallbackInfo callbackInfo) {
-    BlockEntity blockEntity = level.getBlockEntity(blockPos);
-    for (int slot = 0; slot < 3; slot++) {
-      ItemStack stack = itemStacks.get(slot);
-      stack = ItemProductionLib.itemProduced(stack, blockEntity);
-      itemStacks.set(slot, stack);
+
+    if (level != null && !level.isClientSide()) {
+      BlockEntity blockEntity = level.getBlockEntity(blockPos);
+
+      for (int slot = 0; slot < 3; slot++) {
+        ItemStack stack = itemStacks.get(slot);
+
+        // KORREKTUR: 'stack != null' entfernt, da NonNullList niemals null enthält.
+        // '.isEmpty()' fängt leere Slots (ItemStack.EMPTY) absolut fehlerfrei ab.
+        if (!stack.isEmpty()) {
+          ItemStack modified = ItemProductionLib.itemProduced(stack.copy(), blockEntity);
+
+          stack.setTag(modified.getTag());
+          stack.setCount(modified.getCount());
+        }
+      }
+
+      if (blockEntity != null) {
+        blockEntity.setChanged();
+      }
     }
   }
 }

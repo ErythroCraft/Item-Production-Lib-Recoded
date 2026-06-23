@@ -126,6 +126,9 @@ processResources {
 }
 
 jar {
+    // NEU: Sagt Gradle 8+, dass doppelte Dateien (wie die Refmap) einfach übersprungen werden sollen
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
     manifest {
         attributes([
                 "Specification-Title"     : mod_id,
@@ -138,20 +141,18 @@ jar {
                 "MixinConfigs"            : "${mod_id}.mixins.json"
         ])
     }
-    // Zwingt Gradle dazu, die zur Compile-Zeit generierte Refmap automatisch in die JAR zu packen
-    from("${project.buildDir}/tmp/compileJava") {
-        include "itemproduction.refmap.json"
-    }
 }
 
 jar.finalizedBy('reobfJar')
 
+// Aktiviert den Annotation-Processor für Gradle 8+ fehlerfrei
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    // Aktiviert den AnnotationProcessor Pfad für das korrekte Schreiben der Refmaps
     options.annotationProcessorPath = files(configurations.annotationProcessor)
     options.compilerArgs.addAll([
-        "-AoutRefMapFile=${project.buildDir}/tmp/compileJava/itemproduction.refmap.json",
+        // Schreibt die Refmap direkt dorthin, wo Gradle die Ressourcen für die JAR sammelt
+        "-AoutRefMapFile=${project.buildDir}/resources/main/itemproduction.refmap.json",
         "-AdefaultObfuscationEnv=searge"
     ])
 }
+

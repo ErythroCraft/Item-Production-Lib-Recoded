@@ -19,9 +19,6 @@ public abstract class BrewingStandBlockEntityMixin {
     throw new IllegalStateException("Mixin class cannot be instantiated");
   }
 
-  /**
-   * Injiziert sich ans Ende des Brauvorgangs (TAIL) im Vanilla-Braustand.
-   */
   @Inject(method = "doBrew", at = @At("TAIL"))
   private static void enhanceBrewedPotions(
       Level level,
@@ -35,8 +32,6 @@ public abstract class BrewingStandBlockEntityMixin {
       for (int slot = 0; slot < 3; slot++) {
         ItemStack stack = itemStacks.get(slot);
 
-        // KORREKTUR: 'stack != null' entfernt, da NonNullList niemals null enthält.
-        // '.isEmpty()' fängt leere Slots (ItemStack.EMPTY) absolut fehlerfrei ab.
         if (!stack.isEmpty()) {
           ItemStack modified = ItemProductionLib.itemProduced(stack.copy(), blockEntity);
 

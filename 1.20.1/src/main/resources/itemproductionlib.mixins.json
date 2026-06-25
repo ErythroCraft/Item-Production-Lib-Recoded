@@ -8,10 +8,11 @@
     "minecraft/BlockEntityMixin",
     "minecraft/AbstractFurnaceBlockEntityMixin",
     "minecraft/BrewingStandBlockEntityMixin",
+    "minecraft/CampfireBlockEntityMixin",
     "minecraft/SmithingMenuMixin",
     "davespotioneering/AdvancedBrewingStandBlockEntityMixin",
-    "farmersdelight/CookingPotBlockEntityMixin",
-    "visualworkbench/ModCraftingMenuMixin"
+    "visualworkbench/ModCraftingMenuMixin",
+    "farmersdelight/SkilletBlockEntityMixin"
   ],
   "client": [],
   "injectors": {

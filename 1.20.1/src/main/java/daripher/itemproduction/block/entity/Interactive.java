@@ -4,6 +4,8 @@ import javax.annotation.Nullable;
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.entity.BlockEntity;
 
 public interface Interactive {
 
@@ -17,23 +19,23 @@ public interface Interactive {
 
   void setUserUUID(@Nullable UUID uuid);
 
-  /**
-   * Hilfsmethode: Speichert die Spieler-ID dauerhaft in den NBT-Daten des Blocks
-   * (beim Weltspeichern).
-   */
   default void saveUserNbt(CompoundTag tag) {
     if (getUserUUID() != null) {
       tag.putUUID("ItemProductionUser", getUserUUID());
     }
   }
 
-  /**
-   * Hilfsmethode: Lädt die Spieler-ID wieder aus den NBT-Daten des Blocks (beim
-   * Weltladen).
-   */
-  default void loadUserNbt(CompoundTag tag) {
+  default void loadUserNbt(CompoundTag tag, BlockEntity blockEntity) {
     if (tag.hasUUID("ItemProductionUser")) {
-      setUserUUID(tag.getUUID("ItemProductionUser"));
+      UUID uuid = tag.getUUID("ItemProductionUser");
+      setUserUUID(uuid);
+
+      if (getUser() == null && blockEntity.getLevel() instanceof ServerLevel serverLevel) {
+        Player player = serverLevel.getServer().getPlayerList().getPlayer(uuid);
+        if (player != null) {
+          setUser(player);
+        }
+      }
     }
   }
 }

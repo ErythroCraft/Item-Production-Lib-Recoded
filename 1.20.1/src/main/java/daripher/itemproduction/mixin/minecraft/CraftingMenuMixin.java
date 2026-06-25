@@ -23,19 +23,11 @@ public abstract class CraftingMenuMixin {
   @Final
   private Player player;
 
-  // KORREKTUR: Namen an CamelCase angepasst (ohne $) um java:S116 zu lösen
   @Unique
   private boolean itemProductionIsProcessing = false;
 
-  /**
-   * Wird aufgerufen, wenn sich die Items im Crafting-Gitter verändern.
-   * Aktualisiert das Ergebnis-Item im Ausgabeslot mit den gelernten
-   * Skilltree-Boni.
-   */
   @Inject(method = "slotsChanged", at = @At(value = "TAIL"))
   private void itemProduced(Container container, CallbackInfo callbackInfo) {
-    // Wenn wir das Item gerade selbst modifizieren, ignorieren wir diesen
-    // Folge-Aufruf
     if (this.itemProductionIsProcessing) {
       return;
     }
@@ -44,18 +36,13 @@ public abstract class CraftingMenuMixin {
 
     if (!outputStack.isEmpty()) {
       try {
-        // Sperre aktivieren: Wir fangen an zu modifizieren
         this.itemProductionIsProcessing = true;
 
-        // Boni berechnen
         net.minecraft.world.item.ItemStack modifiedStack = ItemProductionLib.itemProduced(outputStack.copy(),
             this.player);
 
-        // Das verbesserte Item sicher in den Ausgabeslot des Handwerkstischs legen
         this.resultSlots.setItem(0, modifiedStack);
       } finally {
-        // Sperre im 'finally'-Block IMMER wieder lösen, damit das nächste Rezept
-        // funktioniert
         this.itemProductionIsProcessing = false;
       }
     }

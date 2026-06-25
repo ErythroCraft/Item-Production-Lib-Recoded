@@ -15,51 +15,45 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(SmithingMenu.class)
 public abstract class SmithingMenuMixin {
 
-  // NEU: Ein Schutz-Flag, das verhindert, dass sich das Menü beim Aktualisieren
-  // im Kreis aufruft
   @Unique
   private boolean itemProductionIsProcessing = false;
 
-  /**
-   * Wird aufgerufen, wenn der Schmiedetisch das Ergebnis eines Upgrades
-   * berechnet.
-   * Injiziert sich ganz am Ende (TAIL) der createResult-Methode.
-   */
   @Inject(method = "createResult", at = @At("TAIL"))
   private void itemProduced(CallbackInfo callbackInfo) {
-    // Falls wir das Item gerade selbst modifizieren, ignorieren wir diesen
-    // Folge-Aufruf
     if (this.itemProductionIsProcessing) {
       return;
     }
 
-    // Wir casten uns die aktuelle Instanz sicher auf die Oberklasse
-    // ItemCombinerMenu um
-    // Da SmithingMenu im Spiel immer davon erbt, ist das absolut crashsicher!
     @SuppressWarnings("ConstantConditions")
     ItemCombinerMenu combinerMenu = (ItemCombinerMenu) (Object) this;
 
-    // Wir nutzen den Forge-Helper, um an die geschützten Felder der Oberklasse
-    // heranzukommen.
-    // Das umgeht alle Konstruktor-Änderungen und macht das Mixin unzerstörbar.
     try {
-      ResultContainer resultSlots = net.minecraftforge.fml.util.ObfuscationReflectionHelper.getPrivateValue(
-          ItemCombinerMenu.class, combinerMenu, "f_39767_"); // "resultSlots" Searge-Feld
-      Player player = net.minecraftforge.fml.util.ObfuscationReflectionHelper.getPrivateValue(
-          ItemCombinerMenu.class, combinerMenu, "f_39768_"); // "player" Searge-Feld
+      java.lang.reflect.Field resultField;
+      java.lang.reflect.Field playerField;
 
-      if (resultSlots != null && player != null) {
+      try {
+        resultField = ItemCombinerMenu.class.getDeclaredField("f_39767_"); // SRG resultSlots
+        playerField = ItemCombinerMenu.class.getDeclaredField("f_39768_"); // SRG player
+      } catch (NoSuchFieldException e) {
+        resultField = ItemCombinerMenu.class.getDeclaredField("resultSlots");
+        playerField = ItemCombinerMenu.class.getDeclaredField("player");
+      }
+
+      resultField.setAccessible(true);
+      playerField.setAccessible(true);
+
+      ResultContainer resultSlots = (ResultContainer) resultField.get(combinerMenu);
+      Player player = (Player) playerField.get(combinerMenu);
+
+      if (resultSlots != null && player != null && !player.level().isClientSide()) {
         ItemStack outputStack = resultSlots.getItem(0);
 
         if (!outputStack.isEmpty()) {
           try {
-            // Endlosschleifen-Schutz aktivieren
             this.itemProductionIsProcessing = true;
 
-            // Boni aus dem Skilltree berechnen
             ItemStack modifiedStack = ItemProductionLib.itemProduced(outputStack.copy(), player);
 
-            // Das verbesserte Item sicher zurück in den Ausgabe-Slot schreiben
             resultSlots.setItem(0, modifiedStack);
           } finally {
             this.itemProductionIsProcessing = false;
@@ -67,7 +61,7 @@ public abstract class SmithingMenuMixin {
         }
       }
     } catch (Exception ignored) {
-      // NOSONAR: Verhindert Abstürze bei abweichenden Forge-Mapping-Builds
+      // NOSONAR
     }
   }
 }

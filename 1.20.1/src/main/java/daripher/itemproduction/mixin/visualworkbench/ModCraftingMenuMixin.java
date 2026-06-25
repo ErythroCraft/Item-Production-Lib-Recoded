@@ -17,47 +17,36 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(value = ModCraftingMenu.class, remap = false)
 public class ModCraftingMenuMixin {
 
-  // KORREKTUR: @Final-Annotation entfernt und durch das echte Java-Schlüsselwort
-  // 'final' ersetzt
   @Shadow
   @Final
   private ResultContainer resultSlots;
+
   @Shadow
   @Final
   private Player player;
 
-  // NEU: Verhindert die Endlosschleife, wenn das Mixin das Item im Ausgabeslot
-  // aktualisiert
   @Unique
   private boolean itemProductionIsProcessing = false;
 
-  /**
-   * Wird aufgerufen, wenn sich die Items im Gitter der Visual Workbench ändern.
-   * Berechnet und aktualisiert die Skilltree-Boni für das fertige Produkt.
-   */
   @Inject(method = "slotsChanged", at = @At(value = "TAIL"))
   private void itemProduced(Container container, CallbackInfo callbackInfo) {
-    // Wenn das Mixin das Item gerade selbst aktualisiert, ignorieren wir diesen
-    // Folge-Aufruf
     if (this.itemProductionIsProcessing) {
       return;
     }
 
-    ItemStack outputStack = this.resultSlots.getItem(0);
+    if (this.player != null && !this.player.level().isClientSide()) {
+      ItemStack outputStack = this.resultSlots.getItem(0);
 
-    if (!outputStack.isEmpty()) {
-      try {
-        // Schutz aktivieren
-        this.itemProductionIsProcessing = true;
+      if (!outputStack.isEmpty()) {
+        try {
+          this.itemProductionIsProcessing = true;
 
-        // Boni über deine Hauptklasse berechnen
-        ItemStack modifiedStack = ItemProductionLib.itemProduced(outputStack.copy(), this.player);
+          ItemStack modifiedStack = ItemProductionLib.itemProduced(outputStack.copy(), this.player);
 
-        // Das verbesserte Item zurück in den Ausgabeslot der Visual Workbench legen
-        this.resultSlots.setItem(0, modifiedStack);
-      } finally {
-        // Schutz im 'finally'-Block auf jeden Fall wieder aufheben
-        this.itemProductionIsProcessing = false;
+          this.resultSlots.setItem(0, modifiedStack);
+        } finally {
+          this.itemProductionIsProcessing = false;
+        }
       }
     }
   }

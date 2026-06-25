@@ -1,10 +1,8 @@
 package daripher.itemproduction.mixin.minecraft;
 
 import daripher.itemproduction.ItemProductionLib;
-import net.minecraft.core.BlockPos; // NEUER IMPORT
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
-import net.minecraft.world.level.block.state.BlockState; // NEUER IMPORT
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -14,12 +12,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class AbstractFurnaceBlockEntityMixin {
 
   protected AbstractFurnaceBlockEntityMixin() {
-    // NOSONAR: Erlaubt dem Bootstrapper das fehlerfreie Laden
   }
 
-  /**
-   * Universelle Geschwindigkeits-Steuerung
-   */
   @Inject(method = "serverTick", at = @At(value = "FIELD", target = "Lnet/minecraft/world/level/block/entity/AbstractFurnaceBlockEntity;cookingProgress:I", ordinal = 1))
   private static void accelerateFurnaceCooking(
       net.minecraft.world.level.Level level,

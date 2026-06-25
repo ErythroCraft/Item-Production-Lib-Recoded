@@ -15,7 +15,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(BlockEntity.class)
 public class BlockEntityMixin implements Interactive {
 
-  // KORREKTUR: Namen an CamelCase angepasst (ohne $) um java:S116 zu lösen
   @Unique
   private @Nullable Player itemProductionPlayer;
   @Unique
@@ -51,6 +50,6 @@ public class BlockEntityMixin implements Interactive {
 
   @Inject(method = "load", at = @At("TAIL"))
   private void injectLoadUserNbt(CompoundTag tag, CallbackInfo ci) {
-    this.loadUserNbt(tag);
+    this.loadUserNbt(tag, (BlockEntity) (Object) this);
   }
 }

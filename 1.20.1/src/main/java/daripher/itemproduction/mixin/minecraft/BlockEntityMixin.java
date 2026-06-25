@@ -50,6 +50,10 @@ public class BlockEntityMixin implements Interactive {
 
   @Inject(method = "load", at = @At("TAIL"))
   private void injectLoadUserNbt(CompoundTag tag, CallbackInfo ci) {
+    // KORREKTUR: Wir übergeben 'this' (als BlockEntity) an die neue
+    // loadUserNbt-Methode.
+    // Damit kann das Interface nach dem Weltladen den Spieler sicher über die UUID
+    // reaktivieren.
     this.loadUserNbt(tag, (BlockEntity) (Object) this);
   }
 }

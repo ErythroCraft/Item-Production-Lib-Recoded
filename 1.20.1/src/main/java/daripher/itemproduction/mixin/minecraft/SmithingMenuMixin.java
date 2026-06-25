@@ -18,6 +18,10 @@ public abstract class SmithingMenuMixin {
   @Unique
   private boolean itemProductionIsProcessing = false;
 
+  /**
+   * Wird aufgerufen, wenn der Schmiedetisch das Ergebnis eines Upgrades
+   * berechnet.
+   */
   @Inject(method = "createResult", at = @At("TAIL"))
   private void itemProduced(CallbackInfo callbackInfo) {
     if (this.itemProductionIsProcessing) {
@@ -28,6 +32,8 @@ public abstract class SmithingMenuMixin {
     ItemCombinerMenu combinerMenu = (ItemCombinerMenu) (Object) this;
 
     try {
+      // Sicheres Auslesen der privaten Felder über Java-Reflection mit SRG- und
+      // Klartext-Fallback
       java.lang.reflect.Field resultField;
       java.lang.reflect.Field playerField;
 
@@ -45,6 +51,8 @@ public abstract class SmithingMenuMixin {
       ResultContainer resultSlots = (ResultContainer) resultField.get(combinerMenu);
       Player player = (Player) playerField.get(combinerMenu);
 
+      // KORREKTUR: Modifikation NUR auf dem Server erlauben, um Desynchronisationen
+      // zu verhindern!
       if (resultSlots != null && player != null && !player.level().isClientSide()) {
         ItemStack outputStack = resultSlots.getItem(0);
 
@@ -52,8 +60,10 @@ public abstract class SmithingMenuMixin {
           try {
             this.itemProductionIsProcessing = true;
 
+            // Boni aus dem Skilltree berechnen
             ItemStack modifiedStack = ItemProductionLib.itemProduced(outputStack.copy(), player);
 
+            // Das verbesserte Item sicher zurück in den Ausgabe-Slot schreiben
             resultSlots.setItem(0, modifiedStack);
           } finally {
             this.itemProductionIsProcessing = false;
@@ -61,7 +71,7 @@ public abstract class SmithingMenuMixin {
         }
       }
     } catch (Exception ignored) {
-      // NOSONAR
+      // NOSONAR: Verhindert Abstürze bei abweichenden Forge-Mapping-Builds
     }
   }
 }

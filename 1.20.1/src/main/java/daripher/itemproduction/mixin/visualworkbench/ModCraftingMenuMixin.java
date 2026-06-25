@@ -28,12 +28,19 @@ public class ModCraftingMenuMixin {
   @Unique
   private boolean itemProductionIsProcessing = false;
 
+  /**
+   * Wird aufgerufen, wenn sich die Items im Gitter der Visual Workbench ändern.
+   * Berechnet und aktualisiert die Skilltree-Boni für das fertige Produkt.
+   */
   @Inject(method = "slotsChanged", at = @At(value = "TAIL"))
   private void itemProduced(Container container, CallbackInfo callbackInfo) {
     if (this.itemProductionIsProcessing) {
       return;
     }
 
+    // KORREKTUR: Modifikation NUR auf der Serverseite erlauben!
+    // Das verhindert NBT-Desynchronisationen und "Geister-Items" in der Visual
+    // Workbench.
     if (this.player != null && !this.player.level().isClientSide()) {
       ItemStack outputStack = this.resultSlots.getItem(0);
 
@@ -41,8 +48,10 @@ public class ModCraftingMenuMixin {
         try {
           this.itemProductionIsProcessing = true;
 
+          // Boni über deine Hauptklasse berechnen
           ItemStack modifiedStack = ItemProductionLib.itemProduced(outputStack.copy(), this.player);
 
+          // Das verbesserte Item zurück in den Ausgabeslot der Visual Workbench legen
           this.resultSlots.setItem(0, modifiedStack);
         } finally {
           this.itemProductionIsProcessing = false;

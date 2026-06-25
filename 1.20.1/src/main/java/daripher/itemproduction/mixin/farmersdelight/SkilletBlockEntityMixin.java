@@ -10,6 +10,10 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 @Mixin(targets = "vectorwing.farmersdelight.common.block.entity.SkilletBlockEntity", remap = false)
 public class SkilletBlockEntityMixin {
 
+    private SkilletBlockEntityMixin() {
+        throw new IllegalStateException("Mixin class cannot be instantiated");
+    }
+
     @ModifyVariable(method = "cookingTick", at = @At("STORE"), ordinal = 0)
     private ItemStack modifySkilletOutput(ItemStack stack) {
         if (stack != null && !stack.isEmpty()) {

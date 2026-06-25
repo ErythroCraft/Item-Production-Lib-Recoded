@@ -11,6 +11,9 @@ import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+
+import javax.annotation.Nullable;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -56,26 +59,47 @@ public class ItemProductionLib {
     }
   }
 
+  /**
+   * FORGE OFEN EVENT:
+   * Erfasst das fertig geschmolzene Item, sobald es aus dem Ofen-Ausgabeslot
+   * entnommen wird.
+   */
   @SubscribeEvent
   public void onPlayerSmeltItem(PlayerEvent.ItemSmeltedEvent event) {
     if (event.getEntity() instanceof ServerPlayer serverPlayer) {
-      try {
-        java.lang.reflect.Field smeltingField;
-        try {
-          smeltingField = PlayerEvent.ItemSmeltedEvent.class.getDeclaredField("f_40243_");
-        } catch (NoSuchFieldException e) {
-          smeltingField = PlayerEvent.ItemSmeltedEvent.class.getDeclaredField("smelting");
-        }
-        smeltingField.setAccessible(true);
-        ItemStack original = (ItemStack) smeltingField.get(event);
+      ItemStack original = getSmeltingItemSecure(event);
 
-        if (original != null && !original.isEmpty()) {
-          ItemStack modified = itemProduced(original.copy(), serverPlayer);
-          original.setTag(modified.getTag());
-          original.setCount(modified.getCount());
-        }
-      } catch (Exception ignored) {
+      if (original != null && !original.isEmpty()) {
+        ItemStack modified = itemProduced(original.copy(), serverPlayer);
+        original.setTag(modified.getTag());
+        original.setCount(modified.getCount());
       }
+    }
+  }
+
+  /**
+   * Hilfsmethode: Holt das geschützte 'smelting'-Feld sicher per Reflection aus
+   * dem Event.
+   * Nutzt einen Fallback zwischen Produktions- (SRG) und Entwicklungs-Mappings.
+   */
+  @Nullable
+  private ItemStack getSmeltingItemSecure(PlayerEvent.ItemSmeltedEvent event) {
+    try {
+      java.lang.reflect.Field smeltingField;
+      try {
+        // 1. Versuch: Produktionsumgebung (SRG-Name)
+        smeltingField = PlayerEvent.ItemSmeltedEvent.class.getDeclaredField("f_40243_");
+      } catch (NoSuchFieldException e) {
+        // 2. Versuch: Entwicklungsumgebung (Klartext-Name)
+        smeltingField = PlayerEvent.ItemSmeltedEvent.class.getDeclaredField("smelting");
+      }
+
+      smeltingField.setAccessible(true);
+      return (ItemStack) smeltingField.get(event);
+    } catch (Exception ignored) {
+      // NOSONAR: Schützt vor abweichenden Forge-Builds und gibt im Fehlerfall null
+      // zurück
+      return null;
     }
   }
 

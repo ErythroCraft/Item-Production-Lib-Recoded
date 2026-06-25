@@ -15,6 +15,7 @@ import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.entity.player.PlayerContainerEvent; // NEUER IMPORT!
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -32,17 +33,36 @@ public class ItemProductionLib {
     IEventBus forgeEventBus = MinecraftForge.EVENT_BUS;
 
     forgeEventBus.addListener(this::setBlockEntityUser);
-    forgeEventBus.addListener(this::onLeftClickCookingBlock); // Für den Linksklick-Abruf!
+    forgeEventBus.addListener(this::onLeftClickCookingBlock);
     forgeEventBus.addListener(this::onItemSpawnInWorld);
+    forgeEventBus.addListener(this::onContainerClick); // Registriert den Container-Klick!
 
     forgeEventBus.register(this);
     LOGGER.warn("[ItemProductionLib] API ERFOLGREICH INITIALISIERT!");
   }
 
   /**
-   * RECHTSKLICK-CHECK: Registriert den Benutzer und fängt Rechtsklick-Entnahmen
-   * ab.
+   * DER UNZERSTÖRBARE GUI-RETTER (Für Steinschneider & Co.):
+   * Fängt jede Item-Entnahme direkt im Container-Menü des Spielers ab.
    */
+  @SubscribeEvent
+  public void onContainerClick(PlayerContainerEvent event) {
+    if (event.getEntity() instanceof ServerPlayer serverPlayer) {
+      // Holt das Item, das der Spieler gerade durch den Klick in der GUI an die Maus
+      // genommen hat
+      ItemStack outputStack = event.getContainer().getCarried();
+
+      if (!outputStack.isEmpty() && !outputStack.getOrCreateTag().contains("SkillTreeProcessed")) {
+        // Globalen Schutzstempel aufsetzen für perfektes Stacking
+        outputStack.getOrCreateTag().putBoolean("SkillTreeProcessed", true);
+
+        // Durch deine Library jagen für das Log-Signal
+        ItemStack modifiedStack = itemProduced(outputStack.copy(), serverPlayer);
+        event.getContainer().setCarried(modifiedStack);
+      }
+    }
+  }
+
   private void setBlockEntityUser(PlayerInteractEvent.RightClickBlock event) {
     if (event.getLevel().isClientSide() || event.getHand() != InteractionHand.MAIN_HAND
         || !(event.getEntity() instanceof ServerPlayer serverPlayer)) {
@@ -60,14 +80,10 @@ public class ItemProductionLib {
     processCookingPotManual(blockEntity, serverPlayer);
   }
 
-  /**
-   * LINKSKLICK-RETTUNG: Fängt das Heraushauen der Suppe mit der Schüssel ab!
-   */
   private void onLeftClickCookingBlock(PlayerInteractEvent.LeftClickBlock event) {
     if (event.getLevel().isClientSide() || !(event.getEntity() instanceof ServerPlayer serverPlayer)) {
       return;
     }
-
     BlockEntity blockEntity = event.getLevel().getBlockEntity(event.getPos());
     if (blockEntity == null)
       return;
@@ -75,18 +91,13 @@ public class ItemProductionLib {
     processCookingPotManual(blockEntity, serverPlayer);
   }
 
-  /**
-   * Hilfsmethode: Verarbeitet den Kochtopf direkt im Slot bei Interaktionen.
-   */
   private void processCookingPotManual(BlockEntity blockEntity, ServerPlayer serverPlayer) {
     String entityClassName = blockEntity.getClass().getName();
     if (entityClassName.contains("CookingPotBlockEntity")) {
       blockEntity.getCapability(ForgeCapabilities.ITEM_HANDLER).ifPresent((IItemHandler handler) -> {
-        ItemStack stack = handler.getStackInSlot(8); // Slot 8 = Result
-
+        ItemStack stack = handler.getStackInSlot(8);
         if (!stack.isEmpty() && !stack.getOrCreateTag().contains("SkillTreeProcessed")) {
           stack.getOrCreateTag().putBoolean("SkillTreeProcessed", true);
-
           ItemStack modified = itemProduced(stack.copy(), serverPlayer);
           stack.setTag(modified.getTag());
           stack.setCount(modified.getCount());
@@ -95,9 +106,6 @@ public class ItemProductionLib {
     }
   }
 
-  /**
-   * LAGERFEUER & PFANNEN: Nutzen ebenfalls den globalen Tag beim Drop.
-   */
   private void onItemSpawnInWorld(EntityJoinLevelEvent event) {
     if (event.getLevel().isClientSide() || !(event.getEntity() instanceof ItemEntity itemEntity)) {
       return;
@@ -130,8 +138,6 @@ public class ItemProductionLib {
   public static ItemStack itemProduced(ItemStack stack, Player player) {
     if (stack.isEmpty() || player == null)
       return stack;
-
-    // Sicherstellen, dass das Item IMMER den globalen Stempel trägt
     stack.getOrCreateTag().putBoolean("SkillTreeProcessed", true);
 
     LOGGER.warn("[ItemProductionLib-DEBUG] Event SUCCESSFULLY intercepted for: " + stack.getItem().toString() + " by "
@@ -150,16 +156,25 @@ public class ItemProductionLib {
     return user == null ? stack : itemProduced(stack, user);
   }
 
+  /**
+   * FÄNGT WERKBANK UND STEINSCHNEIDER AB:
+   * Triggert exakt in der Millisekunde, in der der Spieler das Item aus der GUI
+   * zieht.
+   * VÖLLIG OHNE INSTABILE MIXINS!
+   */
   @SubscribeEvent
   public void onPlayerCraftOrCook(PlayerEvent.ItemCraftedEvent event) {
     if (event.getEntity() instanceof ServerPlayer serverPlayer) {
       ItemStack original = event.getCrafting();
-      if (!original.isEmpty()) {
+
+      if (!original.isEmpty() && !original.getOrCreateTag().contains("SkillTreeProcessed")) {
         original.getOrCreateTag().putBoolean("SkillTreeProcessed", true);
+
         ItemStack modified = itemProduced(original.copy(), serverPlayer);
         original.setTag(modified.getTag());
         original.setCount(modified.getCount());
       }
+
     }
   }
 

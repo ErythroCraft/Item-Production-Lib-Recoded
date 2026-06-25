@@ -15,7 +15,6 @@
     "visualworkbench/ModCraftingMenuMixin",
     "farmersdelight/SkilletBlockEntityMixin",
     "farmersdelight/CookingPotBlockEntityMixin"
-
   ],
   "client": [],
   "injectors": {

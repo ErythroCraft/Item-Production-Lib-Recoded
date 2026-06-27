@@ -1,6 +1,7 @@
 package daripher.itemproduction.mixin.minecraft;
 
 import daripher.itemproduction.ItemProductionLib;
+import daripher.itemproduction.util.ItemProcessingHelper; // Neu: Hilfsklasse importieren
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.world.item.ItemStack;
@@ -15,35 +16,37 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(BrewingStandBlockEntity.class)
 public abstract class BrewingStandBlockEntityMixin {
 
-  /**
-   * Injiziert sich ans Ende des Brauvorgangs (TAIL) im Vanilla-Braustand.
-   * Der blockierende Konstruktor wurde entfernt, um Injektions-Abstürze zu
-   * verhindern.
-   */
-  @Inject(method = "doBrew", at = @At("TAIL"))
-  private static void enhanceBrewedPotions(
-      Level level,
-      BlockPos blockPos,
-      NonNullList<ItemStack> itemStacks,
-      CallbackInfo callbackInfo) {
+    /**
+     * Injects at the end of the vanilla brewing process (TAIL).
+     */
+    @Inject(method = "doBrew", at = @At("TAIL"))
+    private static void enhanceBrewedPotions(
+            Level level,
+            BlockPos blockPos,
+            NonNullList<ItemStack> itemStacks,
+            CallbackInfo callbackInfo) {
 
-    if (level != null && !level.isClientSide()) {
-      BlockEntity blockEntity = level.getBlockEntity(blockPos);
-
-      for (int slot = 0; slot < 3; slot++) {
-        ItemStack stack = itemStacks.get(slot);
-
-        if (!stack.isEmpty()) {
-          ItemStack modified = ItemProductionLib.itemProduced(stack.copy(), blockEntity);
-
-          stack.setTag(modified.getTag());
-          stack.setCount(modified.getCount());
+        if (level == null || level.isClientSide()) {
+            return;
         }
-      }
 
-      if (blockEntity != null) {
-        blockEntity.setChanged();
-      }
+        BlockEntity blockEntity = level.getBlockEntity(blockPos);
+
+        for (int slot = 0; slot < 3; slot++) {
+            ItemStack stack = itemStacks.get(slot);
+
+            // SAFETY FIX: Only process if the item is not empty and has NOT been processed yet
+            // We do NOT call markAsProcessed here, leaving the player stamping to the SlotMixin!
+            if (!stack.isEmpty() && !ItemProcessingHelper.isProcessed(stack)) {
+                ItemStack modified = ItemProductionLib.itemProduced(stack.copy(), blockEntity);
+
+                stack.setTag(modified.getTag());
+                stack.setCount(modified.getCount());
+            }
+        }
+
+        if (blockEntity != null) {
+            blockEntity.setChanged();
+        }
     }
-  }
 }

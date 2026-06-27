@@ -9,7 +9,7 @@
     "minecraft/BrewingStandBlockEntityMixin",
     "minecraft/CampfireBlockEntityMixin",
     "minecraft/SmithingMenuMixin",
-    "minecraft/ServerGamePacketListenerImplMixin",
+    "minecraft.SlotMixin",
     "davespotioneering/AdvancedBrewingStandBlockEntityMixin",
     "visualworkbench/ModCraftingMenuMixin",
     "farmersdelight/SkilletBlockEntityMixin"

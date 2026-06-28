@@ -4,15 +4,19 @@
   "compatibilityLevel": "JAVA_17",
   "package": "daripher.itemproduction.mixin",
   "mixins": [
-    "minecraft/BlockEntityMixin",
+    "davespotioneering/AdvancedBrewingStandBlockEntityMixin",
+    "farmersdelight/SkilletBlockEntityMixin",
+    "farmersdelight/CookingPotMenuMixin",
+
     "minecraft/AbstractFurnaceBlockEntityMixin",
+    "minecraft/BlockEntityMixin",
     "minecraft/BrewingStandBlockEntityMixin",
     "minecraft/CampfireBlockEntityMixin",
-    "minecraft/SmithingMenuMixin",
+    "minecraft/CampfireBlockEntityMixin",
     "minecraft.SlotMixin",
-    "davespotioneering/AdvancedBrewingStandBlockEntityMixin",
-    "visualworkbench/ModCraftingMenuMixin",
-    "farmersdelight/SkilletBlockEntityMixin"
+    "minecraft/SmithingMenuMixin",
+
+    "visualworkbench/ModCraftingMenuMixin"
   ],
   "client": [],
   "injectors": {

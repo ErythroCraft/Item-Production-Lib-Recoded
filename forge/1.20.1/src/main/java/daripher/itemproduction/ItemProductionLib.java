@@ -29,6 +29,14 @@ public class ItemProductionLib {
         IEventBus forgeEventBus = MinecraftForge.EVENT_BUS;
         forgeEventBus.addListener(this::onItemSpawnInWorld);
         forgeEventBus.register(this);
+
+        // REPARATUR: Registriert die Config als COMMON im normalen Hauptordner (config/)
+        net.minecraftforge.fml.ModLoadingContext.get().registerConfig(
+                net.minecraftforge.fml.config.ModConfig.Type.COMMON,
+                daripher.itemproduction.config.ModConfig.SERVER_SPEC,
+                "itemproductionlib-common.toml"
+        );
+
         LOGGER.warn("[ItemProductionLib] API SUCCESSFULLY INITIALIZED!");
     }
 
@@ -66,7 +74,6 @@ public class ItemProductionLib {
         }
 
         if (blockEntity != null) {
-            // DEINE NEUE ZEILE: Sauber integriert für Forge-Mod-Kompatibilität!
             String registryName = net.minecraftforge.registries.ForgeRegistries.BLOCK_ENTITY_TYPES.getKey(blockEntity.getType()).toString();
             String className = blockEntity.getClass().getName();
 
@@ -81,25 +88,47 @@ public class ItemProductionLib {
     }
 
     /**
-     * Core processing method invoked when a player grabs the output.
+     * ZENTRALE STACK-SICHERUNG: Jedes produzierte Item wird hier für das Event
+     * und das Logging in mundgerechte 1er-Teile zerlegt, falls es ein Stack ist!
      */
     public static ItemStack itemProduced(ItemStack stack, Player player) {
         if (stack.isEmpty() || player == null) {
             return stack;
         }
 
-        String pickerName = player.getName().getString();
+        int totalCount = stack.getCount();
         String crafterName = ItemProcessingHelper.getCrafterName(stack);
+        ItemStack finalModifiedStack = stack.copy();
 
-        // Standardized English log output showing both identities
-        LOGGER.warn("[ItemProductionLib-DEBUG] Item taken: " + stack.getItem().toString());
-        LOGGER.warn("[ItemProductionLib-DEBUG] Crafted by: " + crafterName);
-        LOGGER.warn("[ItemProductionLib-DEBUG] Taken out by: " + pickerName);
+        // Fall 1: Wenn die Anzahl bereits 1 ist
+        if (totalCount <= 1) {
+            daripher.itemproduction.util.DebugLogger.logItemProduction(stack, player, crafterName);
 
-        ItemProducedEvent event = new ItemProducedEvent(stack, player);
-        MinecraftForge.EVENT_BUS.post(event);
-        return event.getStack();
+            ItemProducedEvent event = new ItemProducedEvent(stack, player);
+            net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(event);
+            return event.getStack();
+        }
+
+        // Fall 2: Wenn es ein großer Stack ist (Werkbank, Ofen, etc.)
+        for (int i = 1; i <= totalCount; i++) {
+            daripher.itemproduction.util.DebugLogger.logStackLoopStep(i, totalCount);
+
+            ItemStack singleItem = stack.copy();
+            singleItem.setCount(1);
+
+            daripher.itemproduction.util.DebugLogger.logItemProduction(singleItem, player, crafterName);
+
+            ItemProducedEvent event = new ItemProducedEvent(singleItem, player);
+            net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(event);
+
+            if (i == totalCount) {
+                finalModifiedStack.setTag(event.getStack().getTag());
+            }
+        }
+
+        return finalModifiedStack;
     }
+
 
     /**
      * Fallback method for block entities that route through to the interactive user.

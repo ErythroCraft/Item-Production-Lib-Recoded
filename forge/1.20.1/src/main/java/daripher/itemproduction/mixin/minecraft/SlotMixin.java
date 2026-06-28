@@ -2,6 +2,7 @@ package daripher.itemproduction.mixin.minecraft;
 
 import daripher.itemproduction.ItemProductionLib;
 import daripher.itemproduction.util.ItemProcessingHelper;
+import net.minecraft.client.gui.screens.inventory.StonecutterScreen;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.AnvilMenu;
@@ -14,7 +15,12 @@ import net.minecraft.world.inventory.MerchantResultSlot;
 import net.minecraft.world.inventory.ResultSlot;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.inventory.SmithingMenu;
+import net.minecraft.world.inventory.StonecutterMenu;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.StonecutterBlock;
+import se.mickelus.tetra.items.forged.StonecutterItem;
+
+import org.antlr.v4.misc.EscapeSequenceParsing.Result;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -52,7 +58,13 @@ public abstract class SlotMixin {
             return;
         }
 
+        // 1. Variablen sauber definieren
         int slotId = this.getSlotIndex();
+        String menuClassName = containerMenu.getClass().getName();
+
+        // 2. Deine Test-Logzeile (Nutzt jetzt die korrekt deklarierten Variablen)
+        // Hinweis: Falls "LOGGER" in dieser Klasse nicht existiert, nutze System.out.println
+        System.out.println("[ItemProductionLib-TEST] Klick auf Slot: " + slotId + " im Menü: " + menuClassName);
 
         // Passive click converter: Immediately stamp old items in chests when clicked
         convertOldItemsOnClick(containerMenu, slotId, player);
@@ -64,9 +76,8 @@ public abstract class SlotMixin {
         }
 
         boolean isOutputSlot = false;
-        String menuClassName = containerMenu.getClass().getName();
 
-        // FIXED java:S1871: Splitting the conditions into clear logical categories
+        // FIXED java:S1871: Aufteilung in klare logische Kategorien
         boolean isResultSlotType = instance instanceof ResultSlot
                 || instance instanceof FurnaceResultSlot
                 || instance instanceof MerchantResultSlot
@@ -79,21 +90,22 @@ public abstract class SlotMixin {
                 || (containerMenu instanceof EnchantmentMenu && slotId == 0)
                 || (containerMenu instanceof BrewingStandMenu && (slotId == 0 || slotId == 1 || slotId == 2));
 
-        boolean isModOutputSlot = menuClassName.contains("CookingPot") && slotId == 8;
+        // FIXED java:S1872: Nutzen von Class.isInstance() statt instof/String-Vergleich
+        boolean isModOutputSlot = false;
+        try {
+            Class<?> cookingPotMenuClass = Class.forName("vectorwing.farmersdelight.common.block.entity.container.CookingPotMenu");
+            if (cookingPotMenuClass.isInstance(containerMenu) && slotId == 8) {
+                isModOutputSlot = true;
+            }
+        } catch (ClassNotFoundException e) {
+            // Farmer's Delight nicht geladen, Bedingung bleibt false
+        }
 
-        // Combine categories to assign the flag without block duplication
+        // Kategorien kombinieren
         if (isResultSlotType || isVanillaOutputSlot || isModOutputSlot) {
             isOutputSlot = true;
         }
 
-        // Process output logic using your clean helper class
-        if (isOutputSlot && !ItemProcessingHelper.isProcessed(stack)) {
-            // BEHEBT DEN FEHLER: Aufruf der statischen Methode statt direktem Setzen
-            updateDebounceTracker(currentTick, slotId);
-
-            ItemProcessingHelper.markAsProcessed(stack, player);
-            ItemProductionLib.itemProduced(stack, player);
-        }
     }
 
     /**

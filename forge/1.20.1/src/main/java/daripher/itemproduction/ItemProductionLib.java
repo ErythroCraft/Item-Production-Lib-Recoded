@@ -32,7 +32,7 @@ public class ItemProductionLib {
                 "itemproductionlib-common.toml"
         );
 
-        LOGGER.warn("[ItemProductionLib] API SUCCESSFULLY INITIALIZED WITH TAG-FREE ARCHITECTURE!");
+        LOGGER.warn("[ItemProductionLib] API SUCCESSFULLY INITIALIZED WITH HIGH-PERFORMANCE FULL-STACK ARCHITECTURE!");
     }
 
     /**
@@ -45,7 +45,6 @@ public class ItemProductionLib {
             return;
         }
 
-        // KORREKTUR: Defensiver Check beseitigt die Eclipse/SonarQube Null-Safety Warnung komplett!
         net.minecraft.core.BlockPos pos = event.getPos();
         if (pos == null) {
             return;
@@ -59,57 +58,64 @@ public class ItemProductionLib {
     }
 
     /**
-     * ZENTRALE STACK-SICHERUNG (Für direkte Spieler-Aufrufe wie Werkbänke):
-     * Zerlegt den Stack für das Event und das Logging in 1er-Teile, um Boni präzise pro Item zu berechnen.
-     * Nutzt den neuen, absturzsicheren DebugLogger-Typen!
+     * NEUE ZENTRALE STACK-SICHERUNG (Automod- und Performance-sicher):
+     * Schickt den gesamten Stack als Ganzes durch das Event.
+     * Schreibt das Ergebnis DIREKT physisch in das Original-Objekt zurück,
+     * damit Minecraft alle Ofen- und Inventar-Slots fehlerfrei aktualisiert!
      */
     public static ItemStack itemProduced(ItemStack stack, Player player, String productionType) {
         if (stack.isEmpty() || player == null) {
             return stack;
         }
 
-        int totalCount = stack.getCount();
-        ItemStack finalModifiedStack = stack.copy();
-
-        // Da wir keine Tags mehr nutzen, ist der Urheber beim frischen Craften immer der extrahierende Spieler selbst
         String crafterName = player.getName().getString();
 
-        // Fall 1: Wenn die Anzahl bereits 1 ist
-        if (totalCount <= 1) {
-            daripher.itemproduction.util.DebugLogger.logItemProduction(stack, player, crafterName, productionType);
+        // Ein einziger Log-Aufruf für den gesamten Stack (spart IO-Leistung im Server-Thread)
+        daripher.itemproduction.util.DebugLogger.logItemProduction(stack, player, crafterName, productionType);
 
-            ItemProducedEvent event = new ItemProducedEvent(stack, player);
-            net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(event);
-            return event.getStack();
-        }
+        // Wir feuern das Event GENAU EINMAL ab – egal ob 1 oder 10.000 Items verarbeitet werden!
+        ItemProducedEvent event = new ItemProducedEvent(stack, player);
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(event);
 
-        // Fall 2: Wenn es ein großer Stack ist (Werkbank, Ofen, etc.)
-        for (int i = 1; i <= totalCount; i++) {
-            daripher.itemproduction.util.DebugLogger.logStackLoopStep(i, totalCount);
+        // Wir holen uns das modifizierte Ergebnis aus dem Skill-Tree
+        ItemStack resultStack = event.getStack();
 
-            ItemStack singleItem = stack.copy();
-            singleItem.setCount(1);
+        // KORREKTUR: Wir weisen dem ECHTEN, übergebenen Stack die neue Gesamtanzahl zu!
+        // Nur so merken Minecraft und Automods live, dass Bonus-Items generiert wurden.
+        stack.setCount(resultStack.getCount());
 
-            daripher.itemproduction.util.DebugLogger.logItemProduction(singleItem, player, crafterName, productionType);
-
-            ItemProducedEvent event = new ItemProducedEvent(singleItem, player);
-            net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(event);
-
-            if (i == totalCount) {
-                // FIX: Wir übernehmen NUR NOCH die Anzahl (falls Skills Erträge verändern). 
-                // Das Setzen von Tags (setTag) fällt komplett weg, um das Stacking-Problem dauerhaft zu lösen!
-                finalModifiedStack.setCount(event.getStack().getCount());
-            }
-        }
-
-        return finalModifiedStack;
+        return stack;
     }
 
     /**
-     * Hilfsmethode für Mixins, die den Typen mitsenden (z.B. Kochtopf, Bratpfanne).
+     * Hilfsmethode für Mixins und BlockEntities.
+     * Ermittelt dynamisch den korrekten Produktionstyp, damit der Passive Skill Tree 
+     * die Events nicht wegen des Typs "unknown" blockiert!
      */
     public static ItemStack itemProduced(ItemStack stack, Player player) {
-        return itemProduced(stack, player, "unknown");
+        String detectedType = "crafting"; // Standard-Fallback
+
+        if (player instanceof ServerPlayer serverPlayer) {
+            if (serverPlayer.containerMenu instanceof net.minecraft.world.inventory.SmithingMenu) {
+                detectedType = "smithing";
+            } else if (serverPlayer.containerMenu instanceof net.minecraft.world.inventory.FurnaceMenu) {
+                detectedType = "furnace";
+            } else if (serverPlayer.containerMenu instanceof net.minecraft.world.inventory.BlastFurnaceMenu) {
+                detectedType = "blast_furnace";
+            } else if (serverPlayer.containerMenu instanceof net.minecraft.world.inventory.SmokerMenu) {
+                detectedType = "smoker";
+            } else if (serverPlayer.containerMenu != null) {
+                // Farmer's Delight Menüs über den Klassennamen abfangen
+                String menuName = serverPlayer.containerMenu.getClass().getSimpleName().toLowerCase();
+                if (menuName.contains("cookingpot")) {
+                    detectedType = "cookingpot";
+                } else if (menuName.contains("skillet")) {
+                    detectedType = "skillet";
+                }
+            }
+        }
+        
+        return itemProduced(stack, player, detectedType);
     }
 
     /**
@@ -120,7 +126,12 @@ public class ItemProductionLib {
             return stack;
         }
         Player user = interactive.getUser();
-        return user == null ? stack : itemProduced(stack, user, "block_entity");
+
+        // Erkennt Kochtopf und Bratpfanne anhand des BlockEntity-Klassennamens für die Configs
+        String blockTypeName = blockEntity.getClass().getSimpleName().toLowerCase();
+        String productionType = blockTypeName.contains("cookingpot") ? "cookingpot" : (blockTypeName.contains("skillet") ? "skillet" : "block_entity");
+
+        return user == null ? stack : itemProduced(stack, user, productionType);
     }
 
     /**

@@ -4,11 +4,8 @@ import daripher.itemproduction.block.entity.Interactive;
 
 import java.util.UUID;
 
-import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -49,23 +46,7 @@ public class SkilletBlockEntityTrackMixin implements Interactive {
     }
 
     /**
-     * Klinkt sich in die statische cookingTick-Methode von Farmer's Delight ein.
-     * Da die Methode statisch ist, müssen wir die blockEntity-Instanz explizit prüfen.
-     */
-    @Inject(method = "cookingTick", at = @At("HEAD"))
-    private static void onSkilletCookingTickHead(Level level, BlockPos pos, BlockState state, SkilletBlockEntity blockEntity, CallbackInfo ci) {
-        if (level == null || level.isClientSide() || blockEntity == null) {
-            return;
-        }
-
-        // KORREKTUR: Sicherer Cast auf das Interface über die übergebene BlockEntity-Instanz
-        if ((Object) blockEntity instanceof Interactive interactive && interactive.getUser() == null) {
-            interactive.resolveUser(level);
-        }
-    }
-
-    /**
-     * KORREKTUR: remap = true gesetzt, da saveAdditional eine Minecraft-Methode ist.
+     * remap = true gesetzt, da saveAdditional eine Minecraft-Methode ist.
      */
     @Inject(method = "saveAdditional", at = @At("TAIL"), remap = true)
     private void onSave(CompoundTag tag, CallbackInfo ci) {
@@ -73,7 +54,7 @@ public class SkilletBlockEntityTrackMixin implements Interactive {
     }
 
     /**
-     * KORREKTUR: remap = true gesetzt, da load eine Minecraft-Methode ist.
+     * remap = true gesetzt, da load eine Minecraft-Methode ist.
      */
     @Inject(method = "load", at = @At("TAIL"), remap = true)
     private void onLoad(CompoundTag tag, CallbackInfo ci) {

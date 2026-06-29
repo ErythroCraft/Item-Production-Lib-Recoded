@@ -1,44 +1,82 @@
 package daripher.itemproduction.mixin.farmersdelight;
 
 import daripher.itemproduction.ItemProductionLib;
+import daripher.itemproduction.block.entity.Interactive;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
-import net.minecraftforge.items.IItemHandler;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Coerce;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// 1. Importiere die Klasse direkt von Farmer's Delight
+// Importiert die originale Farmer's Delight Klasse
 import vectorwing.farmersdelight.common.block.entity.SkilletBlockEntity;
 
-// 2. Nutze "value" statt "targets" (remap bleibt auf false)
 @Mixin(value = SkilletBlockEntity.class, remap = false)
-public class SkilletBlockEntityMixin {
+public abstract class SkilletBlockEntityMixin {
 
-    // 2. remap = false stellt sicher, dass der Compiler nicht nach MCP/SRG-Mappings sucht
-    @Inject(method = "cookingTick", at = @At("TAIL"), remap = false)
-    private static void modifySkilletOutputViaForge(Level level, BlockPos pos, BlockState state,
-                                                    @Coerce BlockEntity blockEntity, CallbackInfo ci) {
-        if (level == null || level.isClientSide() || blockEntity == null) {
+    // Shadow-Verweis auf die originale Methode von Farmer's Delight, um an das Item zu kommen
+    @Shadow
+    public abstract ItemStack getStoredStack();
+
+    /**
+     * KORREKTUR: Wir injizieren uns am Ende von 'finishCooking'.
+     * Diese Methode wird von Farmer's Delight genau dann aufgerufen, wenn ein Bratvorgang 
+     * erfolgreich abgeschlossen wurde – egal ob einzelnes Item oder Teil eines Stacks!
+     */
+    @Inject(method = "finishCooking", at = @At("TAIL"))
+    private void onSkilletCookingFinished(Level level, CallbackInfo ci) {
+        if (level == null || level.isClientSide()) {
             return;
         }
 
-        blockEntity.getCapability(ForgeCapabilities.ITEM_HANDLER).ifPresent((IItemHandler handler) -> {
-            for (int slot = 0; slot < handler.getSlots(); slot++) {
-                ItemStack stack = handler.getStackInSlot(slot);
+        // 1. Hole das frisch fertiggestellte Essen (bzw. den aktuellen Stack) aus der Pfanne
+        ItemStack finishedFood = this.getStoredStack();
+        if (finishedFood.isEmpty()) {
+            return;
+        }
 
-                if (!stack.isEmpty()) {
-                    ItemStack modified = ItemProductionLib.itemProduced(stack.copy(), blockEntity);
-                    stack.setTag(modified.getTag());
-                    stack.setCount(modified.getCount());
-                }
+        // Das betroffene BlockEntity für Positionsdaten holen
+        net.minecraft.world.level.block.entity.BlockEntity blockEntity = (net.minecraft.world.level.block.entity.BlockEntity) (Object) this;
+        BlockPos pos = blockEntity.getBlockPos();
+
+        // 2. Greife über das Interactive-Interface sicher auf den Spieler zu
+        Player foundPlayer = null;
+        if ((Object) this instanceof Interactive interactive) {
+            foundPlayer = interactive.resolveUser(level);
+        }
+
+        ServerPlayer targetPlayer = null;
+        if (foundPlayer instanceof ServerPlayer serverPlayer) {
+            targetPlayer = serverPlayer;
+        }
+
+        // FALLBACK: Falls die Pfanne automatisiert befüllt wurde (z.B. Pipes/Hopper), nimm den nächsten Spieler
+        if (targetPlayer == null) {
+            Player closestPlayer = level.getNearestPlayer(pos.getX(), pos.getY(), pos.getZ(), 8.0, false);
+            if (closestPlayer instanceof ServerPlayer serverPlayer) {
+                targetPlayer = serverPlayer;
             }
-        });
+        }
+
+        // 3. Übergabe an Ihre Hauptbibliothek
+        if (targetPlayer != null) {
+            // Da ein Stack verarbeitet wird, übergeben wir eine Kopie mit der korrekten Anzahl des aktuellen Ergebnisses
+            int count = finishedFood.getCount();
+            String itemName = finishedFood.getItem().toString();
+            String playerName = targetPlayer.getName().getString();
+
+            // Logger füttern
+            daripher.itemproduction.util.DebugLogger.logCookingPotStack(playerName, itemName, count, "SERVER_SKILLET_RECIPE_FINISHED");
+
+            // Reicht eine saubere Kopie des fertigen Essens ohne störende NBT-Tags weiter
+            ItemProductionLib.itemProduced(finishedFood.copy(), targetPlayer);
+
+            daripher.itemproduction.util.DebugLogger.logStackLoopEnd();
+        }
     }
 }

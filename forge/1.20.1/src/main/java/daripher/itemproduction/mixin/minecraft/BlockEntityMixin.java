@@ -2,6 +2,8 @@ package daripher.itemproduction.mixin.minecraft;
 
 import daripher.itemproduction.block.entity.Interactive;
 import java.util.UUID;
+
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.player.Player;
@@ -44,12 +46,12 @@ public class BlockEntityMixin implements Interactive {
   }
 
   @Inject(method = "saveAdditional", at = @At("TAIL"))
-  private void injectSaveUserNbt(CompoundTag tag, CallbackInfo ci) {
+  private void injectSaveUserNbt(@Nonnull CompoundTag tag, CallbackInfo ci) {
     this.saveUserNbt(tag);
   }
 
   @Inject(method = "load", at = @At("TAIL"))
-  private void injectLoadUserNbt(CompoundTag tag, CallbackInfo ci) {
+  private void injectLoadUserNbt(@Nonnull CompoundTag tag, CallbackInfo ci) {
     // KORREKTUR: Wir übergeben 'this' (als BlockEntity) an die neue
     // loadUserNbt-Methode.
     // Damit kann das Interface nach dem Weltladen den Spieler sicher über die UUID

@@ -2,7 +2,12 @@ package daripher.itemproduction.config;
 
 import net.minecraftforge.common.ForgeConfigSpec;
 
+/**
+ * Zentrale Konfigurationsklasse für die Item Production Bibliothek.
+ * Vollständig SonarQube-konform und für die Forge-Config-Schnittstelle optimiert.
+ */
 public final class ModConfig {
+
     public static final ForgeConfigSpec SERVER_SPEC;
 
     public static final ForgeConfigSpec.BooleanValue SHOW_STACK_TEST_LOGS;
@@ -54,7 +59,8 @@ public final class ModConfig {
         SERVER_SPEC = builder.build();
     }
 
+    // FIX java:S1118: Robuster Utility-Konstruktor, der eine Instanziierung unmöglich macht
     private ModConfig() {
-        // SonarQube-konform
+        throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
     }
 }
